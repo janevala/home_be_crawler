@@ -23,3 +23,9 @@ go.work.sum
 
 # env file
 .env
+
+# local repo files
+go.work
+go.mod
+go.sum
+__debug_*
