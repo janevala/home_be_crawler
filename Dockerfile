@@ -1,7 +1,6 @@
 FROM debian:latest
 RUN apt update && apt install -y git golang
 ENV PATH="/usr/bin:${PATH}"
-WORKDIR /homebe
+WORKDIR /homebe_crawler
 COPY . .
-EXPOSE 8091
-CMD ["go", "run", "main.go"]
+CMD ["make", "run_production"]
