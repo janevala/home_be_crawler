@@ -1,4 +1,5 @@
 BINARY_NAME=home_be_crawler
+
 GOARCH_AMD64=amd64
 GOARCH_ARM64=arm64
 GOARCH=${GOARCH_AMD64}
@@ -27,5 +28,6 @@ run_arm:
 clean:
 	go clean
 	rm -rf vendor
-	rm -f ${BINARY_NAME}_${GOARCH}
+	rm -f ${BINARY_NAME}_${GOARCH_AMD64}
+	rm -f ${BINARY_NAME}_${GOARCH_ARM64}
 
