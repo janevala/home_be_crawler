@@ -14,18 +14,18 @@ go get github.com/lib/pq
 
 # Docker notes
 ```
-sudo docker network create crawler-network
+sudo docker network create home-network
 
-sudo docker run --name postgres-container --network crawler-network -e POSTGRES_PASSWORD=1234 -p 5432:5432 -d postgres
-sudo docker exec -ti postgres-container createdb -U postgres homebedb
-sudo docker exec -ti postgres-container psql -U postgres
+sudo docker run --name postgres-host --network home-network -e POSTGRES_PASSWORD=1234 -p 5432:5432 -d postgres
+sudo docker exec -ti postgres-host createdb -U postgres homebedb
+sudo docker exec -ti postgres-host psql -U postgres
 postgres=# \c homebedb
 homebedb=# \q
 homebedb=# \dt feed_items
 
 sudo docker build --no-cache -f Dockerfile -t crawler .
-sudo docker run --name home-web-crawler --network crawler-network -d crawler
+sudo docker run --name crawler-host --network home-network -d crawler
 
-docker network connect crawler-network postgres-container
-docker network connect crawler-network home-web-crawler
+docker network connect home-network postgres-host
+docker network connect home-network crawler-host
 ```
