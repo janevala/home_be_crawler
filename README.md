@@ -19,9 +19,8 @@ sudo docker exec -ti postgres-container createdb -U postgres homebedb
 sudo docker exec -ti postgres-container psql -U postgres
 postgres=# \c homebedb
 homebedb=# \q
-
 homebedb=# \dt feed_items
 
-sudo docker run -d home-web-crawler
 sudo docker build --no-cache -f Dockerfile -t home-web-crawler .
+sudo docker run -d home-web-crawler
 ```
