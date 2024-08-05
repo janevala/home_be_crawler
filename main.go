@@ -47,19 +47,6 @@ type ExtendedItem struct {
 }
 
 func crawlSites(sites Sites, database Database) {
-	connStr := database.Postgres
-	db, err := sql.Open("postgres", connStr)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err = db.Ping(); err != nil {
-		log.Fatal(err)
-	}
-
-	createTableIfNeeded(db)
-
 	feedParser := gofeed.NewParser()
 
 	var items []*gofeed.Item = []*gofeed.Item{}
@@ -93,6 +80,19 @@ func crawlSites(sites Sites, database Database) {
 		guidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(items[i].Title, 50)))
 		items[i].GUID = guidString
 	}
+
+	connStr := database.Postgres
+	db, err := sql.Open("postgres", connStr)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
+	}
+
+	createTableIfNeeded(db)
 
 	var pkAccumulated int
 	for i := 0; i < len(items); i++ {
