@@ -26,6 +26,6 @@ homebedb=# \dt feed_items
 sudo docker build --no-cache -f Dockerfile -t crawler .
 sudo docker run --name crawler-host --network home-network -d crawler
 
-docker network connect home-network postgres-host
-docker network connect home-network crawler-host
+sudo docker network connect home-network postgres-host
+sudo docker network connect home-network crawler-host
 ```
