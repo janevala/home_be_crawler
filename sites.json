@@ -21,6 +21,26 @@
 			"uuid": "f071a624-2a3f-4fd6-a592-8d6884029d57",
 			"title": "TechCrunch",
 			"url": "https://techcrunch.com/feed/"
+		},
+		{
+			"uuid": "asdf1",
+			"title": "Engadget main feed",
+			"url": "https://www.engadget.com/rss.xml"
+		},
+		{
+			"uuid": "asdf2",
+			"title": "Engadget Desktops",
+			"url": "http://desktops.engadget.com/rss.xml"
+		},
+		{
+			"uuid": "asdf3",
+			"title": "Engadget Digital Cameras",
+			"url": "http://digitalcameras.engadget.com/rss.xml"
+		},
+		{
+			"uuid": "asdf4",
+			"title": "Engadget GPS",
+			"url": "http://gps.engadget.com/rss.xml"
 		}
 	]
 }
