@@ -16,7 +16,7 @@ go get github.com/lib/pq
 ```
 sudo docker network create home-network
 
-sudo docker run --name postgres-host --network home-network -e POSTGRES_PASSWORD=1234 -p 5432:5432 -d postgres
+sudo docker run --name postgres-host --network home-network -l com.centurylinklabs.watchtower.enable=false -e POSTGRES_PASSWORD=1234 -p 5432:5432 -d postgres
 sudo docker exec -ti postgres-host createdb -U postgres homebedb
 sudo docker exec -ti postgres-host psql -U postgres
 postgres=# \c homebedb
