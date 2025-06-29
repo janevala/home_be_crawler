@@ -5,16 +5,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"sort"
+	"strconv"
+	"sync"
 	"time"
 	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
 
+	Log "github.com/janevala/home_be/llog"
 	_ "github.com/lib/pq"
 )
 
@@ -53,6 +55,7 @@ func crawlSites(sites Sites, database Database) {
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
+			Log.Err(err)
 			panic(err)
 		} else {
 			if feed.Image != nil {
@@ -85,11 +88,15 @@ func crawlSites(sites Sites, database Database) {
 	db, err := sql.Open("postgres", connStr)
 
 	if err != nil {
-		log.Fatal(err)
+		Log.Err(err)
+		panic(err)
 	}
 
 	if err = db.Ping(); err != nil {
-		log.Fatal(err)
+		Log.Err(err)
+		panic(err)
+	} else {
+		Log.Out("Connected to database successfully")
 	}
 
 	createTableIfNeeded(db)
@@ -102,7 +109,7 @@ func crawlSites(sites Sites, database Database) {
 		}
 
 		if pk <= pkAccumulated {
-			log.Fatal(fmt.Errorf("PK ERROR"))
+			Log.Fatal(fmt.Errorf("PK ERROR"))
 		} else {
 			pkAccumulated = pk
 		}
@@ -138,7 +145,7 @@ func createTableIfNeeded(db *sql.DB) {
 
 	_, err := db.Exec(query)
 	if err != nil {
-		log.Fatal(err)
+		Log.Fatal(err)
 	}
 }
 
@@ -149,7 +156,7 @@ func insertItem(db *sql.DB, item *gofeed.Item) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Updated, item.Image.URL, item.GUID).Scan(&pk)
 
 	if err != nil {
-		log.Println("UNHANDLED MINOR ERROR: ", err)
+		Log.Println("UNHANDLED MINOR ERROR: ", err)
 	}
 
 	return pk
@@ -172,10 +179,8 @@ func EllipticalTruncate(text string, maxLen int) string {
 }
 
 func main() {
-	//	logger := log.New(log.Writer(), "[HTTP] ", log.LstdFlags)
-
-	log.Println("Number of CPUs: ", runtime.NumCPU())
-	log.Println("Number of Goroutines: ", runtime.NumGoroutine())
+	Log.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
+	Log.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 }
 
 func init() {
@@ -188,6 +193,7 @@ func init() {
 	json.Unmarshal(sitesFile, &sites)
 	sitesString, err := json.MarshalIndent(sites, "", "\t")
 	if err != nil {
+		Log.Err(err)
 		panic(err)
 	} else {
 		sites.Time = int(time.Now().UTC().UnixMilli())
@@ -195,11 +201,12 @@ func init() {
 			sites.Sites[i].Uuid = uuid.NewString()
 		}
 
-		log.Println(string(sitesString))
+		Log.Out(string(sitesString))
 	}
 
 	databaseFile, err := os.ReadFile("database.json")
 	if err != nil {
+		Log.Err(err)
 		panic(err)
 	}
 
@@ -207,10 +214,19 @@ func init() {
 	json.Unmarshal(databaseFile, &database)
 	databaseString, err := json.MarshalIndent(database, "", "\t")
 	if err != nil {
+		Log.Err(err)
 		panic(err)
 	} else {
-		log.Println(string(databaseString))
+		Log.Out(string(databaseString))
 	}
 
-	crawlSites(sites, database)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		defer Log.Out("Crawling completed")
+
+		crawlSites(sites, database)
+	}()
 }
