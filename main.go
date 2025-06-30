@@ -156,7 +156,7 @@ func insertItem(db *sql.DB, item *gofeed.Item) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Updated, item.Image.URL, item.GUID).Scan(&pk)
 
 	if err != nil {
-		Log.Println("UNHANDLED MINOR ERROR: ", err)
+		Log.Err(err)
 	}
 
 	return pk
