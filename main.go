@@ -186,6 +186,7 @@ func main() {
 func init() {
 	sitesFile, err := os.ReadFile("sites.json")
 	if err != nil {
+		Log.Err(err)
 		panic(err)
 	}
 
