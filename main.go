@@ -65,7 +65,7 @@ func crawlSites(sites Sites, database Database) {
 			} else {
 				for j := 0; j < len(feed.Items); j++ {
 					feed.Items[j].Image = &gofeed.Image{
-						URL:   "https://github.com/janevala/home_be_crawler",
+						URL:   "https://github.com/janevala/home_be_crawler.git",
 						Title: "N/A",
 					}
 				}
