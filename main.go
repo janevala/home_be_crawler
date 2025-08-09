@@ -99,8 +99,9 @@ func crawlSites(sites Sites, database Database) {
 		combinedItems[i].Description = EllipticalTruncate(combinedItems[i].Description, 500)
 
 		// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
-		guidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
-		combinedItems[i].Uuid = guidString
+		// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
+		uuidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
+		combinedItems[i].Uuid = uuidString
 	}
 
 	connStr := database.Postgres
@@ -151,9 +152,9 @@ func createTableIfNeeded(db *sql.DB) {
 		published_parsed timestamp NOT NULL,
 		source VARCHAR(200) NOT NULL,
 		thumbnail VARCHAR(500),
-		guid VARCHAR(250) NOT NULL,
+		uuid VARCHAR(200) NOT NULL,
 		created timestamp DEFAULT NOW(),
-		UNIQUE (guid)
+		UNIQUE (uuid)
 	)`
 
 	_, err := db.Exec(query)
@@ -163,7 +164,7 @@ func createTableIfNeeded(db *sql.DB) {
 }
 
 func insertItem(db *sql.DB, item *NewsItem) int {
-	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, source, thumbnail, guid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id"
+	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, source, thumbnail, uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id"
 
 	var pk int
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
