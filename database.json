@@ -1,3 +1,0 @@
-{
-	"postgres": "postgres://postgres:1234@postgres-host:5432/homebedb?sslmode=disable"
-}

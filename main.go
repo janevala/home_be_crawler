@@ -3,9 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"os"
 	"runtime"
 	"sort"
 	"strconv"
@@ -13,28 +11,12 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
 
-	Log "github.com/janevala/home_be/llog"
+	"github.com/janevala/home_be/config"
+	"github.com/janevala/home_be/llog"
 	_ "github.com/lib/pq"
 )
-
-type Database struct {
-	Postgres string `json:"postgres"`
-}
-
-type Sites struct {
-	Time  int    `json:"time"`
-	Title string `json:"title"`
-	Sites []Site `json:"sites"`
-}
-
-type Site struct {
-	Uuid  string `json:"uuid"`
-	Title string `json:"title"`
-	Url   string `json:"url"`
-}
 
 type NewsItem struct {
 	Source          string     `json:"source,omitempty"`
@@ -48,14 +30,14 @@ type NewsItem struct {
 	Uuid            string     `json:"uuid,omitempty"`
 }
 
-func crawlSites(sites Sites, database Database) {
+func crawlSites(sites config.SitesConfig, database config.Database) {
 	feedParser := gofeed.NewParser()
 
 	var combinedItems []*NewsItem = []*NewsItem{}
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
-			Log.Err(err)
+			llog.Err(err)
 			panic(err)
 		} else {
 			if feed.Image != nil {
@@ -91,7 +73,7 @@ func crawlSites(sites Sites, database Database) {
 	}
 
 	if len(combinedItems) == 0 {
-		Log.Out("No items found, exiting...")
+		llog.Out("No items found, exiting...")
 		return
 	}
 
@@ -108,15 +90,15 @@ func crawlSites(sites Sites, database Database) {
 	db, err := sql.Open("postgres", connStr)
 
 	if err != nil {
-		Log.Err(err)
+		llog.Err(err)
 		panic(err)
 	}
 
 	if err = db.Ping(); err != nil {
-		Log.Err(err)
+		llog.Err(err)
 		panic(err)
 	} else {
-		Log.Out("Connected to database successfully")
+		llog.Out("Connected to database successfully")
 	}
 
 	createTableIfNeeded(db)
@@ -129,7 +111,7 @@ func crawlSites(sites Sites, database Database) {
 		}
 
 		if pk <= pkAccumulated {
-			Log.Fatal(fmt.Errorf("PK ERROR"))
+			llog.Fatal(fmt.Errorf("PK ERROR"))
 		} else {
 			pkAccumulated = pk
 		}
@@ -159,7 +141,7 @@ func createTableIfNeeded(db *sql.DB) {
 
 	_, err := db.Exec(query)
 	if err != nil {
-		Log.Fatal(err)
+		llog.Fatal(err)
 	}
 }
 
@@ -170,7 +152,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
-		Log.Err(err)
+		llog.Err(err)
 	}
 
 	return pk
@@ -193,56 +175,28 @@ func EllipticalTruncate(text string, maxLen int) string {
 	return text
 }
 
+var cfg *config.Config
+
 func main() {
-	Log.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
-	Log.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
-}
-
-func init() {
-	sitesFile, err := os.ReadFile("sites.json")
-	if err != nil {
-		Log.Err(err)
-		panic(err)
-	}
-
-	sites := Sites{}
-	json.Unmarshal(sitesFile, &sites)
-	sitesString, err := json.MarshalIndent(sites, "", "\t")
-	if err != nil {
-		Log.Err(err)
-		panic(err)
-	} else {
-		sites.Time = int(time.Now().UTC().UnixMilli())
-		for i := 0; i < len(sites.Sites); i++ {
-			sites.Sites[i].Uuid = uuid.NewString()
-		}
-
-		Log.Out(string(sitesString))
-	}
-
-	databaseFile, err := os.ReadFile("database.json")
-	if err != nil {
-		Log.Err(err)
-		panic(err)
-	}
-
-	database := Database{}
-	json.Unmarshal(databaseFile, &database)
-	databaseString, err := json.MarshalIndent(database, "", "\t")
-	if err != nil {
-		Log.Err(err)
-		panic(err)
-	} else {
-		Log.Out(string(databaseString))
-	}
+	llog.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
+	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		defer Log.Out("Crawling completed")
+		defer llog.Out("Crawling completed")
 
-		crawlSites(sites, database)
+		crawlSites(cfg.Sites, cfg.Database)
 	}()
+}
+
+func init() {
+	var err error
+	cfg, err = config.LoadConfig("config.json")
+	if err != nil {
+		llog.Err(err)
+		panic(err)
+	}
 }
