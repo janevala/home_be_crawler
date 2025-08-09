@@ -36,22 +36,22 @@ type Site struct {
 	Url   string `json:"url"`
 }
 
-type ExtendedItem struct {
+type NewsItem struct {
+	Source          string     `json:"source,omitempty"`
 	Title           string     `json:"title,omitempty"`
 	Description     string     `json:"description,omitempty"`
 	Content         string     `json:"content,omitempty"`
 	Link            string     `json:"link,omitempty"`
-	Updated         string     `json:"updated,omitempty"`
 	Published       string     `json:"published,omitempty"`
 	PublishedParsed *time.Time `json:"publishedParsed,omitempty"`
 	LinkImage       string     `json:"linkImage,omitempty"`
-	GUID            string     `json:"guid,omitempty"`
+	Uuid            string     `json:"uuid,omitempty"`
 }
 
 func crawlSites(sites Sites, database Database) {
 	feedParser := gofeed.NewParser()
 
-	var items []*gofeed.Item = []*gofeed.Item{}
+	var combinedItems []*NewsItem = []*NewsItem{}
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
@@ -65,23 +65,42 @@ func crawlSites(sites Sites, database Database) {
 			} else {
 				for j := 0; j < len(feed.Items); j++ {
 					feed.Items[j].Image = &gofeed.Image{
-						URL: "https://www.google.com",
+						URL:   "https://github.com/janevala/home_be_crawler",
+						Title: "N/A",
 					}
 				}
 			}
 
+			var items []*NewsItem = []*NewsItem{}
 			for j := 0; j < len(feed.Items); j++ {
-				feed.Items[j].Updated = sites.Sites[i].Title // reusing for another purpose because lazyness TODO
+				items[j].Source = sites.Sites[i].Title
+				items[j].Title = feed.Items[j].Title
+				items[j].Description = feed.Items[j].Description
+				items[j].Content = feed.Items[j].Content
+				items[j].Link = feed.Items[j].Link
+				items[j].Published = feed.Items[j].Published
+				items[j].PublishedParsed = feed.Items[j].PublishedParsed
+				items[j].LinkImage = feed.Items[j].Image.URL
+				items[j].Uuid = feed.Items[j].GUID
+				// items[j].Uuid = uuid.NewString()
+
 			}
 
-			items = append(items, feed.Items...)
+			combinedItems = append(combinedItems, items...)
 		}
 	}
 
-	for i := 0; i < len(items); i++ {
-		items[i].Description = EllipticalTruncate(items[i].Description, 990)
-		guidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(items[i].Title, 50)))
-		items[i].GUID = guidString
+	if len(combinedItems) == 0 {
+		Log.Out("No items found, exiting...")
+		return
+	}
+
+	for i := 0; i < len(combinedItems); i++ {
+		combinedItems[i].Description = EllipticalTruncate(combinedItems[i].Description, 500)
+
+		// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
+		guidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
+		combinedItems[i].Uuid = guidString
 	}
 
 	connStr := database.Postgres
@@ -102,8 +121,8 @@ func crawlSites(sites Sites, database Database) {
 	createTableIfNeeded(db)
 
 	var pkAccumulated int
-	for i := 0; i < len(items); i++ {
-		var pk = insertItem(db, items[i])
+	for i := 0; i < len(combinedItems); i++ {
+		var pk = insertItem(db, combinedItems[i])
 		if pk == 0 {
 			continue
 		}
@@ -117,15 +136,9 @@ func crawlSites(sites Sites, database Database) {
 
 	defer db.Close()
 
-	var isSorted bool = sort.SliceIsSorted(items, func(i, j int) bool {
-		return items[i].PublishedParsed.After(*items[j].PublishedParsed)
+	sort.Slice(combinedItems, func(i, j int) bool {
+		return combinedItems[i].PublishedParsed.After(*combinedItems[j].PublishedParsed)
 	})
-
-	if !isSorted {
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].PublishedParsed.After(*items[j].PublishedParsed)
-		})
-	}
 }
 
 func createTableIfNeeded(db *sql.DB) {
@@ -149,11 +162,11 @@ func createTableIfNeeded(db *sql.DB) {
 	}
 }
 
-func insertItem(db *sql.DB, item *gofeed.Item) int {
+func insertItem(db *sql.DB, item *NewsItem) int {
 	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, source, thumbnail, guid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id"
 
 	var pk int
-	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Updated, item.Image.URL, item.GUID).Scan(&pk)
+	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
 		Log.Err(err)
@@ -175,6 +188,7 @@ func EllipticalTruncate(text string, maxLen int) string {
 			return text[:lastSpaceIx] + "..."
 		}
 	}
+
 	return text
 }
 
