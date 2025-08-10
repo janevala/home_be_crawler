@@ -72,56 +72,53 @@ func crawlSites(sites config.SitesConfig, database config.Database) {
 		}
 	}
 
-	if len(combinedItems) == 0 {
-		llog.Out("No items found, exiting...")
-		return
-	}
+	if len(combinedItems) >= 0 {
+		for i := 0; i < len(combinedItems); i++ {
+			combinedItems[i].Description = EllipticalTruncate(combinedItems[i].Description, 500)
 
-	for i := 0; i < len(combinedItems); i++ {
-		combinedItems[i].Description = EllipticalTruncate(combinedItems[i].Description, 500)
-
-		// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
-		// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
-		uuidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
-		combinedItems[i].Uuid = uuidString
-	}
-
-	connStr := database.Postgres
-	db, err := sql.Open("postgres", connStr)
-
-	if err != nil {
-		llog.Err(err)
-		panic(err)
-	}
-
-	if err = db.Ping(); err != nil {
-		llog.Err(err)
-		panic(err)
-	} else {
-		llog.Out("Connected to database successfully")
-	}
-
-	createTableIfNeeded(db)
-
-	var pkAccumulated int
-	for i := 0; i < len(combinedItems); i++ {
-		var pk = insertItem(db, combinedItems[i])
-		if pk == 0 {
-			continue
+			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
+			// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
+			uuidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
+			combinedItems[i].Uuid = uuidString
 		}
 
-		if pk <= pkAccumulated {
-			llog.Fatal(fmt.Errorf("PK ERROR"))
+		connStr := database.Postgres
+		db, err := sql.Open("postgres", connStr)
+
+		if err != nil {
+			llog.Err(err)
+			panic(err)
+		}
+
+		if err = db.Ping(); err != nil {
+			llog.Err(err)
+			panic(err)
 		} else {
-			pkAccumulated = pk
+			llog.Out("Connected to database successfully")
 		}
+
+		createTableIfNeeded(db)
+
+		var pkAccumulated int
+		for i := 0; i < len(combinedItems); i++ {
+			var pk = insertItem(db, combinedItems[i])
+			if pk == 0 {
+				continue
+			}
+
+			if pk <= pkAccumulated {
+				llog.Fatal(fmt.Errorf("PK ERROR"))
+			} else {
+				pkAccumulated = pk
+			}
+		}
+
+		defer db.Close()
+
+		sort.Slice(combinedItems, func(i, j int) bool {
+			return combinedItems[i].PublishedParsed.After(*combinedItems[j].PublishedParsed)
+		})
 	}
-
-	defer db.Close()
-
-	sort.Slice(combinedItems, func(i, j int) bool {
-		return combinedItems[i].PublishedParsed.After(*combinedItems[j].PublishedParsed)
-	})
 }
 
 func createTableIfNeeded(db *sql.DB) {
