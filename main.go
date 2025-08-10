@@ -30,7 +30,7 @@ type NewsItem struct {
 	Uuid            string     `json:"uuid,omitempty"`
 }
 
-func crawlSites(sites config.SitesConfig, database config.Database) {
+func crawl(sites config.SitesConfig, database config.Database) {
 	feedParser := gofeed.NewParser()
 
 	var combinedItems []*NewsItem = []*NewsItem{}
@@ -74,11 +74,11 @@ func crawlSites(sites config.SitesConfig, database config.Database) {
 
 	if len(combinedItems) >= 0 {
 		for i := 0; i < len(combinedItems); i++ {
-			combinedItems[i].Description = EllipticalTruncate(combinedItems[i].Description, 500)
+			combinedItems[i].Description = ellipticalTruncate(combinedItems[i].Description, 500)
 
 			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
 			// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
-			uuidString := base64.StdEncoding.EncodeToString([]byte(EllipticalTruncate(combinedItems[i].Title, 40)))
+			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 40)))
 			combinedItems[i].Uuid = uuidString
 		}
 
@@ -156,7 +156,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 }
 
 // https://stackoverflow.com/a/73939904 find better way with AI if needed
-func EllipticalTruncate(text string, maxLen int) string {
+func ellipticalTruncate(text string, maxLen int) string {
 	lastSpaceIx := maxLen
 	len := 0
 	for i, r := range text {
@@ -174,6 +174,15 @@ func EllipticalTruncate(text string, maxLen int) string {
 
 var cfg *config.Config
 
+func init() {
+	var err error
+	cfg, err = config.LoadConfig("config.json")
+	if err != nil {
+		llog.Err(err)
+		panic(err)
+	}
+}
+
 func main() {
 	llog.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
 	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
@@ -185,15 +194,6 @@ func main() {
 		defer wg.Done()
 		defer llog.Out("Crawling completed")
 
-		crawlSites(cfg.Sites, cfg.Database)
+		crawl(cfg.Sites, cfg.Database)
 	}()
-}
-
-func init() {
-	var err error
-	cfg, err = config.LoadConfig("config.json")
-	if err != nil {
-		llog.Err(err)
-		panic(err)
-	}
 }
