@@ -13,7 +13,7 @@ dep:
 	go mod tidy && go mod vendor && go fmt
 
 build:
-	go mod init github.com/janevala/home_be
+	go mod init github.com/janevala/home_be_crawler
 	go mod tidy
 	go get github.com/mmcdole/gofeed
 	go get github.com/google/uuid
@@ -37,3 +37,4 @@ clean:
 	rm -f ${BINARY_NAME}_${BUILDARCH}
 
 rebuild: clean build
+
