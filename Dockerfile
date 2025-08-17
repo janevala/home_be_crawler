@@ -1,6 +1,5 @@
 FROM golang:1.24
 RUN apt update
-RUN go version
 RUN apt install -y make
 ENV PATH="/usr/bin:${PATH}"
 WORKDIR /homebe_crawler
