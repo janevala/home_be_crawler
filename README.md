@@ -29,7 +29,3 @@ sudo docker run --name crawler-host --network home-network -d crawler
 sudo docker network connect home-network postgres-host
 sudo docker network connect home-network crawler-host
 ```
-
-TODO
-- FIX WITH CUSTOM OBJECT feed.Items[j].Updated = sites.Sites[i].Title // reusing for another purpose because lazyness TODO
-
