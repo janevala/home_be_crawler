@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/base64"
-	"fmt"
 	"runtime"
 	"sort"
 	"strconv"
@@ -110,7 +109,7 @@ func crawl(sites config.SitesConfig, database config.Database) {
 			}
 
 			if pk <= pkAccumulated {
-				llog.Fatal(fmt.Errorf("PK ERROR"))
+				llog.Fatal("PK ERROR")
 			} else {
 				pkAccumulated = pk
 			}
@@ -191,8 +190,8 @@ func main() {
 	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
 	llog.Out("Starting crawler with configuration:")
-	llog.Out("Sites: " + fmt.Sprintf("%v", cfg.Sites))
-	llog.Out("Database: " + fmt.Sprintf("%v", cfg.Database))
+	llog.Out("Sites: " + llog.Out(cfg.Sites))
+	llog.Out("Database: " + llog.Out(cfg.Database))
 
 	var wg sync.WaitGroup
 	wg.Add(1)

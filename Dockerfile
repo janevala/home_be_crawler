@@ -7,6 +7,3 @@ COPY . .
 RUN rm -f go.mod
 RUN rm -f go.sum
 CMD ["./start.sh"]
-
-# FROM debian:stable-slim AS builder
-# RUN apt update && apt install -y git golang
