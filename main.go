@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
 
 	"github.com/janevala/home_be_crawler/config"
@@ -55,17 +56,19 @@ func crawl(sites config.SitesConfig, database config.Database) {
 
 			var items []*NewsItem = []*NewsItem{}
 			for j := 0; j < len(feed.Items); j++ {
-				items[j].Source = sites.Sites[i].Title
-				items[j].Title = feed.Items[j].Title
-				items[j].Description = feed.Items[j].Description
-				items[j].Content = feed.Items[j].Content
-				items[j].Link = feed.Items[j].Link
-				items[j].Published = feed.Items[j].Published
-				items[j].PublishedParsed = feed.Items[j].PublishedParsed
-				items[j].LinkImage = feed.Items[j].Image.URL
-				items[j].Uuid = feed.Items[j].GUID
-				// items[j].Uuid = uuid.NewString()
+				NewsItem := &NewsItem{
+					Source:          sites.Sites[i].Title,
+					Title:           feed.Items[j].Title,
+					Description:     feed.Items[j].Description,
+					Content:         feed.Items[j].Content,
+					Link:            feed.Items[j].Link,
+					Published:       feed.Items[j].Published,
+					PublishedParsed: feed.Items[j].PublishedParsed,
+					LinkImage:       feed.Items[j].Image.URL,
+					Uuid:            uuid.NewString(),
+				}
 
+				items = append(items, NewsItem)
 			}
 
 			combinedItems = append(combinedItems, items...)
