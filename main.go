@@ -13,8 +13,8 @@ import (
 
 	"github.com/mmcdole/gofeed"
 
-	"github.com/janevala/home_be/config"
-	"github.com/janevala/home_be/llog"
+	"github.com/janevala/home_be_crawler/config"
+	"github.com/janevala/home_be_crawler/llog"
 	_ "github.com/lib/pq"
 )
 
