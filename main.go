@@ -127,12 +127,12 @@ func crawl(sites config.SitesConfig, database config.Database) {
 func createTableIfNeeded(db *sql.DB) {
 	query := `CREATE TABLE IF NOT EXISTS feed_items (
 		id SERIAL PRIMARY KEY,
-		title VARCHAR(200) NOT NULL,
+		title VARCHAR(300) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
 		link VARCHAR(500) NOT NULL,
 		published timestamp NOT NULL,
 		published_parsed timestamp NOT NULL,
-		source VARCHAR(200) NOT NULL,
+		source VARCHAR(300) NOT NULL,
 		thumbnail VARCHAR(500),
 		uuid VARCHAR(300) NOT NULL,
 		created timestamp DEFAULT NOW(),
