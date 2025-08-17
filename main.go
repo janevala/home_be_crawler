@@ -196,4 +196,7 @@ func main() {
 
 		crawl(cfg.Sites, cfg.Database)
 	}()
+
+	wg.Wait()
+	llog.Out("All goroutines completed")
 }
