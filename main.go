@@ -134,7 +134,7 @@ func createTableIfNeeded(db *sql.DB) {
 		published_parsed timestamp NOT NULL,
 		source VARCHAR(200) NOT NULL,
 		thumbnail VARCHAR(500),
-		uuid VARCHAR(200) NOT NULL,
+		uuid VARCHAR(300) NOT NULL,
 		created timestamp DEFAULT NOW(),
 		UNIQUE (uuid)
 	)`
