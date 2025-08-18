@@ -81,7 +81,7 @@ func crawl(sites config.SitesConfig, database config.Database) {
 
 			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
 			// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
-			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 20)))
+			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 25)))
 			combinedItems[i].Uuid = uuidString
 		}
 
@@ -152,7 +152,9 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
-		llog.Out(err.Error() + " uuid: " + item.Uuid)
+		llog.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
+	} else {
+		llog.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + item.Title)
 	}
 
 	return pk
