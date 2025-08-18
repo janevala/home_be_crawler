@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -58,7 +59,7 @@ func crawl(sites config.SitesConfig, database config.Database) {
 			for j := 0; j < len(feed.Items); j++ {
 				NewsItem := &NewsItem{
 					Source:          sites.Sites[i].Title,
-					Title:           feed.Items[j].Title,
+					Title:           strings.TrimSpace(feed.Items[j].Title),
 					Description:     feed.Items[j].Description,
 					Content:         feed.Items[j].Content,
 					Link:            feed.Items[j].Link,
@@ -154,7 +155,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	if err != nil {
 		llog.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
 	} else {
-		llog.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + item.Title)
+		llog.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 25))
 	}
 
 	return pk
