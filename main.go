@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"runtime"
 	"sort"
 	"strconv"
@@ -190,8 +191,8 @@ func main() {
 	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
 	llog.Out("Starting crawler with configuration:")
-	llog.Out("Sites: " + llog.Out(cfg.Sites))
-	llog.Out("Database: " + llog.Out(cfg.Database))
+	llog.Out("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
+	llog.Out("Database: " + fmt.Sprintf("%#v", cfg.Database))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
