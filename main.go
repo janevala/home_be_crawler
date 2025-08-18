@@ -85,6 +85,10 @@ func crawl(sites config.SitesConfig, database config.Database) {
 			combinedItems[i].Uuid = uuidString
 		}
 
+		sort.Slice(combinedItems, func(i, j int) bool {
+			return combinedItems[i].PublishedParsed.After(*combinedItems[j].PublishedParsed)
+		})
+
 		connStr := database.Postgres
 		db, err := sql.Open("postgres", connStr)
 
@@ -117,10 +121,6 @@ func crawl(sites config.SitesConfig, database config.Database) {
 		}
 
 		defer db.Close()
-
-		sort.Slice(combinedItems, func(i, j int) bool {
-			return combinedItems[i].PublishedParsed.After(*combinedItems[j].PublishedParsed)
-		})
 	}
 }
 
@@ -152,7 +152,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
-		llog.Err(err)
+		llog.Out(err.Error() + " uuid: " + item.Uuid)
 	}
 
 	return pk
