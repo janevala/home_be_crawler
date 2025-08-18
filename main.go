@@ -81,7 +81,7 @@ func crawl(sites config.SitesConfig, database config.Database) {
 
 			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
 			// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
-			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 40)))
+			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 20)))
 			combinedItems[i].Uuid = uuidString
 		}
 
