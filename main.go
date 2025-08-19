@@ -193,7 +193,7 @@ func main() {
 	llog.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
 	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
-	llog.Out("Starting crawler with configuration:")
+	llog.Out("Starting with configuration:")
 	llog.Out("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
 	llog.Out("Database: " + fmt.Sprintf("%#v", cfg.Database))
 
