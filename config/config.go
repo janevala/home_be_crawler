@@ -11,13 +11,11 @@ type Database struct {
 }
 
 type SitesConfig struct {
-	Time  int
 	Title string
 	Sites []Site
 }
 
 type Site struct {
-	Uuid  string
 	Title string
 	Url   string
 }
