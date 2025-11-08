@@ -76,12 +76,13 @@ func crawl(sites config.SitesConfig, database config.Database) {
 		}
 	}
 
-	if len(combinedItems) >= 0 {
+	if len(combinedItems) > 0 {
 		for i := 0; i < len(combinedItems); i++ {
 			combinedItems[i].Description = ellipticalTruncate(combinedItems[i].Description, 500)
 
 			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
-			// TODO: consider using getting uuid from Published or PublishedParsed, do more debugging
+			// TODO: consider using getting uuid from Published or PublishedParsed
+			// NOTE: impossible todo without starting whole db collection from scratch
 			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 35)))
 			combinedItems[i].Uuid = uuidString
 		}
