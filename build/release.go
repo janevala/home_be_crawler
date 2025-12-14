@@ -1,16 +1,11 @@
-//go:build debug
+//go:build release
 
-// llog/debug.go
-package llog
+// build/release.go
+package build
 
 import "log"
 
 func Out(v ...any) {
-	if len(v) == 0 {
-		return
-	}
-
-	log.Printf("[OUT] %v", v...)
 }
 
 func Err(err error) {

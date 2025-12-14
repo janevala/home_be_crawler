@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
 
-	"github.com/janevala/home_be_crawler/config"
-	"github.com/janevala/home_be_crawler/llog"
+	B "github.com/janevala/home_be_crawler/build"
+	Conf "github.com/janevala/home_be_crawler/config"
 	_ "github.com/lib/pq"
 )
 
@@ -32,15 +32,14 @@ type NewsItem struct {
 	Uuid            string     `json:"uuid,omitempty"`
 }
 
-func crawl(sites config.SitesConfig, database config.Database) {
+func crawl(sites Conf.SitesConfig, database Conf.Database) {
 	feedParser := gofeed.NewParser()
 
 	var combinedItems []*NewsItem = []*NewsItem{}
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
-			llog.Err(err)
-			panic(err)
+			B.Fatal(err)
 		} else {
 			if feed.Image != nil {
 				for j := 0; j < len(feed.Items); j++ {
@@ -95,15 +94,13 @@ func crawl(sites config.SitesConfig, database config.Database) {
 		db, err := sql.Open("postgres", connStr)
 
 		if err != nil {
-			llog.Err(err)
-			panic(err)
+			B.Fatal(err)
 		}
 
 		if err = db.Ping(); err != nil {
-			llog.Err(err)
-			panic(err)
+			B.Fatal(err)
 		} else {
-			llog.Out("Connected to database successfully")
+			B.Out("Connected to database successfully")
 		}
 
 		createTableIfNeeded(db)
@@ -116,7 +113,7 @@ func crawl(sites config.SitesConfig, database config.Database) {
 			}
 
 			if pk <= pkAccumulated {
-				llog.Fatal("PK ERROR")
+				B.Fatal("PK ERROR")
 			} else {
 				pkAccumulated = pk
 			}
@@ -143,7 +140,7 @@ func createTableIfNeeded(db *sql.DB) {
 
 	_, err := db.Exec(query)
 	if err != nil {
-		llog.Fatal(err)
+		B.Fatal(err)
 	}
 }
 
@@ -154,9 +151,9 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
-		llog.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
+		B.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
 	} else {
-		llog.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
+		B.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
 	}
 
 	return pk
@@ -179,35 +176,34 @@ func ellipticalTruncate(text string, maxLen int) string {
 	return text
 }
 
-var cfg *config.Config
+var cfg *Conf.Config
 
 func init() {
 	var err error
-	cfg, err = config.LoadConfig("config.json")
+	cfg, err = Conf.LoadConfig("config.json")
 	if err != nil {
-		llog.Err(err)
-		panic(err)
+		B.Fatal(err)
 	}
 }
 
 func main() {
-	llog.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
-	llog.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
+	B.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
+	B.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
-	llog.Out("Starting with configuration:")
-	llog.Out("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
-	llog.Out("Database: " + fmt.Sprintf("%#v", cfg.Database))
+	B.Out("Starting with configuration:")
+	B.Out("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
+	B.Out("Database: " + fmt.Sprintf("%#v", cfg.Database))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		defer llog.Out("Crawling completed")
+		defer B.Out("Crawling completed")
 
 		crawl(cfg.Sites, cfg.Database)
 	}()
 
 	wg.Wait()
-	llog.Out("All goroutines completed")
+	B.Out("All goroutines completed")
 }
