@@ -1,3 +1,6 @@
+# Any args passed to the make script, use with $(call args, default_value)
+# args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
+
 BINARY_NAME=home_be_crawler
 GOOS=linux
 BUILDARCH ?= $(shell uname -m)
@@ -12,7 +15,7 @@ endif
 dep:
 	go mod tidy && go mod vendor && go fmt
 
-build:
+build: clean
 	go mod init github.com/janevala/home_be_crawler
 	go mod tidy
 	go get github.com/mmcdole/gofeed
@@ -37,4 +40,3 @@ clean:
 	rm -f ${BINARY_NAME}_${BUILDARCH}
 
 rebuild: clean build
-
