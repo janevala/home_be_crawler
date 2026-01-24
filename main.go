@@ -28,7 +28,6 @@ type NewsItem struct {
 	Link            string     `json:"link,omitempty"`
 	Published       string     `json:"published,omitempty"`
 	PublishedParsed *time.Time `json:"publishedParsed,omitempty"`
-	FetchTime       *time.Time `json:"fetchTime,omitempty"`
 	LinkImage       string     `json:"linkImage,omitempty"`
 	Uuid            string     `json:"uuid,omitempty"`
 }
@@ -66,7 +65,6 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 					Link:            feed.Items[j].Link,
 					Published:       feed.Items[j].Published,
 					PublishedParsed: feed.Items[j].PublishedParsed,
-					FetchTime:       &now,
 					LinkImage:       feed.Items[j].Image.URL,
 					Uuid:            uuid.NewString(),
 				}
@@ -132,7 +130,6 @@ func createTableIfNeeded(db *sql.DB) {
 		link VARCHAR(500) NOT NULL,
 		published timestamp NOT NULL,
 		published_parsed timestamp NOT NULL,
-		fetch_time timestamp NOT NULL,
 		source VARCHAR(300) NOT NULL,
 		thumbnail VARCHAR(500),
 		uuid VARCHAR(300) NOT NULL,
@@ -147,10 +144,10 @@ func createTableIfNeeded(db *sql.DB) {
 }
 
 func insertItem(db *sql.DB, item *NewsItem) int {
-	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, fetch_time, source, thumbnail, uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT DO NOTHING RETURNING id"
+	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, source, thumbnail, uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id"
 
 	var pk int
-	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.FetchTime, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
+	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
 		B.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
