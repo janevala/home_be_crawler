@@ -54,7 +54,6 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 				}
 			}
 
-			now := time.Now()
 			var items []*NewsItem = []*NewsItem{}
 			for j := 0; j < len(feed.Items); j++ {
 				NewsItem := &NewsItem{
