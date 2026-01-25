@@ -39,7 +39,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
-			B.Fatal(err)
+			B.LogFatal(err)
 		} else {
 			if feed.Image != nil {
 				for j := 0; j < len(feed.Items); j++ {
@@ -92,13 +92,13 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 		db, err := sql.Open("postgres", connStr)
 
 		if err != nil {
-			B.Fatal(err)
+			B.LogFatal(err)
 		}
 
 		if err = db.Ping(); err != nil {
-			B.Fatal(err)
+			B.LogFatal(err)
 		} else {
-			B.Out("Connected to database successfully")
+			B.LogOut("Connected to database successfully")
 		}
 
 		createTableIfNeeded(db)
@@ -111,7 +111,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 			}
 
 			if pk <= pkAccumulated {
-				B.Fatal("PK ERROR")
+				B.LogFatal("PK ERROR")
 			} else {
 				pkAccumulated = pk
 			}
@@ -138,7 +138,7 @@ func createTableIfNeeded(db *sql.DB) {
 
 	_, err := db.Exec(query)
 	if err != nil {
-		B.Fatal(err)
+		B.LogFatal(err)
 	}
 }
 
@@ -149,9 +149,9 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
 
 	if err != nil {
-		B.Out(err.Error() + " - duplicate uuid: " + item.Uuid)
+		B.LogOut(err.Error() + " - duplicate uuid: " + item.Uuid)
 	} else {
-		B.Out("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
+		B.LogOut("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
 	}
 
 	return pk
@@ -180,28 +180,28 @@ func init() {
 	var err error
 	cfg, err = Conf.LoadConfig("config.json")
 	if err != nil {
-		B.Fatal(err)
+		B.LogFatal(err)
 	}
 }
 
 func main() {
-	B.Out("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
-	B.Out("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
+	B.LogOut("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
+	B.LogOut("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
-	B.Out("Starting with configuration:")
-	B.Out("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
-	B.Out("Database: " + fmt.Sprintf("%#v", cfg.Database))
+	B.LogOut("Starting with configuration:")
+	B.LogOut("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
+	B.LogOut("Database: " + fmt.Sprintf("%#v", cfg.Database))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		defer B.Out("Crawling completed")
+		defer B.LogOut("Crawling completed")
 
 		crawl(cfg.Sites, cfg.Database)
 	}()
 
 	wg.Wait()
-	B.Out("All goroutines completed")
+	B.LogOut("All goroutines completed")
 }

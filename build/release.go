@@ -5,29 +5,39 @@ package build
 
 import "log"
 
-func Out(v ...any) {
+var logger *log.Logger
+
+func SetLogger(l *log.Logger) {
+	logger = l
 }
 
-func Err(err error) {
-	if err == nil {
+func IsProduction() bool {
+	return true
+}
+
+func LogOut(v ...any) {
+}
+
+func LogErr(err error) {
+	if err == nil || logger == nil {
 		return
 	}
 
-	log.Printf("[ERROR] %s", err.Error())
+	logger.Printf("[ERROR] %s", err.Error())
 }
 
-func Fatal(v ...any) {
-	if len(v) == 0 {
+func LogFatal(v ...any) {
+	if len(v) == 0 || logger == nil {
 		return
 	}
 
-	log.Fatalf("[FATAL] %v", v...)
+	logger.Fatalf("[FATAL] %v", v...)
 }
 
-func Fatalf(format string, args ...interface{}) {
-	if format == "" {
+func LogFatalf(format string, args ...interface{}) {
+	if format == "" || logger == nil {
 		return
 	}
 
-	log.Fatalf("[FATAL] "+format, args...)
+	logger.Fatalf("[FATAL] "+format, args...)
 }
