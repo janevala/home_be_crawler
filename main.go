@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
+	"github.com/rifaideen/talkative"
 
 	B "github.com/janevala/home_be_crawler/build"
 	Conf "github.com/janevala/home_be_crawler/config"
@@ -30,6 +31,129 @@ type NewsItem struct {
 	PublishedParsed *time.Time `json:"publishedParsed,omitempty"`
 	LinkImage       string     `json:"linkImage,omitempty"`
 	Uuid            string     `json:"uuid,omitempty"`
+}
+
+type QuestionItem struct {
+	Question string `json:"question,omitempty"`
+}
+
+type AnswerItem struct {
+	Answer string `json:"answer,omitempty"`
+}
+
+func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
+	client, err := talkative.New("http://" + ollama.Host + ":" + ollama.Port)
+
+	if err != nil {
+		panic("Failed to create talkative client")
+	}
+
+	response := talkative.ChatResponse{}
+	callback := func(cr *talkative.ChatResponse, err error) {
+		if err != nil {
+			B.LogErr(err)
+			return
+		}
+
+		response = *cr
+	}
+
+	message := talkative.ChatMessage{
+		Role:    talkative.USER,
+		Content: q.Question,
+	}
+
+	b := false
+	done, err := client.Chat(ollama.Model, callback, &talkative.ChatParams{
+		Stream: &b,
+	}, message)
+
+	if err != nil {
+		B.LogErr(err)
+	}
+
+	<-done
+
+	answerItem := AnswerItem{Answer: response.Message.Content}
+
+	return answerItem
+}
+
+func translate(ollama Conf.Ollama, database Conf.Database) {
+	connStr := database.Postgres
+	db, err := sql.Open("postgres", connStr)
+
+	if err != nil {
+		B.LogErr(err)
+		return
+	}
+
+	if err = db.Ping(); err != nil {
+		B.LogErr(err)
+		return
+	}
+
+	rows, err := db.Query(
+		`SELECT id, title, description, published, published_parsed
+				FROM feed_items
+				ORDER BY published_parsed DESC)`)
+
+	if err != nil {
+		B.LogErr(err)
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var title string
+		var description string
+		var published string
+		var publishedParsed time.Time
+
+		if err := rows.Scan(&id, &title, &description, &published, &publishedParsed); err != nil {
+			B.LogErr(err)
+			continue
+		}
+
+		exists := false
+		err = db.QueryRow(
+			`SELECT EXISTS (
+					SELECT 1
+					FROM feed_translations
+					WHERE item_id = $1 AND language = $2
+				)`, id, "es").Scan(&exists)
+
+		if err != nil {
+			B.LogErr(err)
+			continue
+		}
+
+		if !exists {
+			questionTitle := QuestionItem{
+				Question: "Explain the following text in Spanish: " + title,
+			}
+
+			answerTitle := queryAI(questionTitle, ollama)
+
+			questionDescription := QuestionItem{
+				Question: "Explain the following text in Spanish: " + description,
+			}
+
+			answerDescription := queryAI(questionDescription, ollama)
+
+			if answerTitle.Answer != "" || answerDescription.Answer != "" {
+				insertTranslation(db, id, "es", answerTitle.Answer, answerDescription.Answer)
+			}
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		B.LogErr(err)
+	}
+
+	defer db.Close()
 }
 
 func crawl(sites Conf.SitesConfig, database Conf.Database) {
@@ -101,7 +225,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 			B.LogOut("Connected to database successfully")
 		}
 
-		createTableIfNeeded(db)
+		createTablesIfNeeded(db)
 
 		var pkAccumulated int
 		for i := 0; i < len(combinedItems); i++ {
@@ -121,8 +245,8 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 	}
 }
 
-func createTableIfNeeded(db *sql.DB) {
-	query := `CREATE TABLE IF NOT EXISTS feed_items (
+func createTablesIfNeeded(db *sql.DB) {
+	feedItems := `CREATE TABLE IF NOT EXISTS feed_items (
 		id SERIAL PRIMARY KEY,
 		title VARCHAR(300) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
@@ -136,7 +260,23 @@ func createTableIfNeeded(db *sql.DB) {
 		UNIQUE (uuid)
 	)`
 
-	_, err := db.Exec(query)
+	_, err := db.Exec(feedItems)
+	if err != nil {
+		B.LogFatal(err)
+	}
+
+	feedTranslations := `CREATE TABLE IF NOT EXISTS feed_translations (
+		id SERIAL PRIMARY KEY,
+		item_id INT NOT NULL,
+		language VARCHAR(10) NOT NULL,
+		title VARCHAR(300) NOT NULL,
+		description VARCHAR(1000) NOT NULL,
+		created timestamp DEFAULT NOW(),
+		UNIQUE (item_id, language),
+		FOREIGN KEY (item_id) REFERENCES feed_items(id) ON DELETE CASCADE
+	)`
+
+	_, err = db.Exec(feedTranslations)
 	if err != nil {
 		B.LogFatal(err)
 	}
@@ -155,6 +295,18 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	}
 
 	return pk
+}
+
+func insertTranslation(db *sql.DB, itemID int, language string, title string, description string) {
+	query := "INSERT INTO feed_translations (item_id, language, title, description) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING"
+
+	_, err := db.Exec(query, itemID, language, title, description)
+
+	if err != nil {
+		B.LogErr(err)
+	} else {
+		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " language: " + language)
+	}
 }
 
 // https://stackoverflow.com/a/73939904 find better way with AI if needed

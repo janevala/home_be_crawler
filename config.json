@@ -2,6 +2,11 @@
 	"database": {
 		"postgres": "postgres://postgres:1234@postgres-host:5432/homebedb?sslmode=disable"
 	},
+	"ollama": {
+		"host": "192.168.1.160",
+		"port": "11434",
+		"model": "qwen2.5-coder:7b"
+	},
 	"sites": {
 		"title": "RSS Feeds",
 		"sites": [
