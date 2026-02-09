@@ -225,8 +225,6 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 			B.LogOut("Connected to database successfully")
 		}
 
-		createTablesIfNeeded(db)
-
 		var pkAccumulated int
 		for i := 0; i < len(combinedItems); i++ {
 			var pk = insertItem(db, combinedItems[i])
@@ -245,7 +243,20 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 	}
 }
 
-func createTablesIfNeeded(db *sql.DB) {
+func createTablesIfNeeded(database Conf.Database) {
+	connStr := database.Postgres
+	db, err := sql.Open("postgres", connStr)
+
+	if err != nil {
+		B.LogFatal(err)
+	}
+
+	if err = db.Ping(); err != nil {
+		B.LogFatal(err)
+	} else {
+		B.LogOut("Connected to database successfully")
+	}
+
 	feedItems := `CREATE TABLE IF NOT EXISTS feed_items (
 		id SERIAL PRIMARY KEY,
 		title VARCHAR(300) NOT NULL,
@@ -260,7 +271,7 @@ func createTablesIfNeeded(db *sql.DB) {
 		UNIQUE (uuid)
 	)`
 
-	_, err := db.Exec(feedItems)
+	_, err = db.Exec(feedItems)
 	if err != nil {
 		B.LogFatal(err)
 	}
@@ -351,7 +362,9 @@ func main() {
 		defer wg.Done()
 		defer B.LogOut("Crawling completed")
 
+		createTablesIfNeeded(cfg.Database)
 		crawl(cfg.Sites, cfg.Database)
+		translate(cfg.Ollama, cfg.Database)
 	}()
 
 	wg.Wait()
