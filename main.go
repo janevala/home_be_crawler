@@ -291,6 +291,8 @@ func createTablesIfNeeded(database Conf.Database) {
 	if err != nil {
 		B.LogFatal(err)
 	}
+
+	defer db.Close()
 }
 
 func insertItem(db *sql.DB, item *NewsItem) int {
