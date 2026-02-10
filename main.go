@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"runtime"
 	"sort"
 	"strconv"
@@ -93,10 +94,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 		return
 	}
 
-	rows, err := db.Query(
-		`SELECT id, title, description, published, published_parsed
-				FROM feed_items
-				ORDER BY published_parsed DESC)`)
+	rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC`)
 
 	if err != nil {
 		B.LogErr(err)
@@ -117,13 +115,18 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 			continue
 		}
 
+		if strings.Contains(title, "http") || strings.Contains(description, "http") {
+			B.LogOut("Skipping item with link in title or description, id: " + strconv.Itoa(id))
+			continue
+		}
+
 		exists := false
 		err = db.QueryRow(
 			`SELECT EXISTS (
 					SELECT 1
 					FROM feed_translations
 					WHERE item_id = $1 AND language = $2
-				)`, id, "es").Scan(&exists)
+				)`, id, "fi").Scan(&exists)
 
 		if err != nil {
 			B.LogErr(err)
@@ -132,20 +135,18 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 
 		if !exists {
 			questionTitle := QuestionItem{
-				Question: "Explain the following text in Spanish: " + title,
+				Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + title,
 			}
 
 			answerTitle := queryAI(questionTitle, ollama)
 
 			questionDescription := QuestionItem{
-				Question: "Explain the following text in Spanish: " + description,
+				Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + description,
 			}
 
 			answerDescription := queryAI(questionDescription, ollama)
 
-			if answerTitle.Answer != "" || answerDescription.Answer != "" {
-				insertTranslation(db, id, "es", answerTitle.Answer, answerDescription.Answer)
-			}
+			insertTranslation(db, id, "fi", ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
 		}
 	}
 
@@ -201,7 +202,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 
 	if len(combinedItems) > 0 {
 		for i := 0; i < len(combinedItems); i++ {
-			combinedItems[i].Description = ellipticalTruncate(combinedItems[i].Description, 500)
+			combinedItems[i].Description = ellipticalTruncate(combinedItems[i].Description, 950)
 
 			// Hashing title to create unique ID, that serves as mechanism to prevent duplicates in DB
 			uuidString := base64.StdEncoding.EncodeToString([]byte(ellipticalTruncate(combinedItems[i].Title, 35)))
@@ -259,7 +260,7 @@ func createTablesIfNeeded(database Conf.Database) {
 
 	feedItems := `CREATE TABLE IF NOT EXISTS feed_items (
 		id SERIAL PRIMARY KEY,
-		title VARCHAR(300) NOT NULL,
+		title VARCHAR(500) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
 		link VARCHAR(500) NOT NULL,
 		published timestamp NOT NULL,
@@ -280,7 +281,7 @@ func createTablesIfNeeded(database Conf.Database) {
 		id SERIAL PRIMARY KEY,
 		item_id INT NOT NULL,
 		language VARCHAR(10) NOT NULL,
-		title VARCHAR(300) NOT NULL,
+		title VARCHAR(500) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
 		created timestamp DEFAULT NOW(),
 		UNIQUE (item_id, language),
@@ -350,6 +351,9 @@ func init() {
 }
 
 func main() {
+	logger := log.New(log.Writer(), "[LOG] ", log.LstdFlags)
+	B.SetLogger(logger)
+
 	B.LogOut("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
 	B.LogOut("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
 
@@ -365,7 +369,7 @@ func main() {
 		defer B.LogOut("Crawling completed")
 
 		createTablesIfNeeded(cfg.Database)
-		crawl(cfg.Sites, cfg.Database)
+		// crawl(cfg.Sites, cfg.Database)
 		translate(cfg.Ollama, cfg.Database)
 	}()
 
