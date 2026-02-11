@@ -123,9 +123,9 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 		exists := false
 		err = db.QueryRow(
 			`SELECT EXISTS (
-					SELECT 1
-					FROM feed_translations
-					WHERE item_id = $1 AND language = $2
+				SELECT 1
+				FROM feed_translations
+				WHERE item_id = $1 AND language = $2
 				)`, id, "fi").Scan(&exists)
 
 		if err != nil {
@@ -140,11 +140,17 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 
 			answerTitle := queryAI(questionTitle, ollama)
 
-			questionDescription := QuestionItem{
-				Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + description,
-			}
+			answerDescription := AnswerItem{}
 
-			answerDescription := queryAI(questionDescription, ollama)
+			if description == "" {
+				answerDescription = AnswerItem{Answer: ""}
+			} else {
+				questionDescription := QuestionItem{
+					Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + description,
+				}
+
+				answerDescription = queryAI(questionDescription, ollama)
+			}
 
 			insertTranslation(db, id, "fi", ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
 		}
