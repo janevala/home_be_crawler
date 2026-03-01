@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"runtime"
@@ -46,36 +47,42 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 	client, err := talkative.New("http://" + ollama.Host + ":" + ollama.Port)
 
 	if err != nil {
-		panic("Failed to create talkative client")
+		panic(err)
 	}
 
-	response := talkative.ChatResponse{}
-	callback := func(cr *talkative.ChatResponse, err error) {
+	var response talkative.CompletionResponse
+	callback := func(cr string, err error) {
 		if err != nil {
-			B.LogErr(err)
+			fmt.Println(err)
 			return
 		}
 
-		response = *cr
+		if err = json.Unmarshal([]byte(cr), &response); err != nil {
+			fmt.Println(err)
+
+			return
+		}
+
+		fmt.Print(response.Response)
 	}
 
-	message := talkative.ChatMessage{
-		Role:    talkative.USER,
-		Content: q.Question,
+	message := &talkative.CompletionMessage{
+		Prompt: q.Question,
+		CompletionParams: &talkative.CompletionParams{
+			System: "You are language specialist, not a translator. You generate text in Finnish. Just text itself, no explanation needed.",
+		},
 	}
 
-	b := false
-	done, err := client.Chat(ollama.Model, callback, &talkative.ChatParams{
-		Stream: &b,
-	}, message)
+	model := ollama.Model
+	done, err := client.PlainCompletion(model, callback, message)
 
 	if err != nil {
-		B.LogErr(err)
+		panic(err)
 	}
 
 	<-done
 
-	answerItem := AnswerItem{Answer: response.Message.Content}
+	answerItem := AnswerItem{Answer: response.Response}
 
 	return answerItem
 }
@@ -135,7 +142,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 
 		if !exists {
 			questionTitle := QuestionItem{
-				Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + title,
+				Question: title,
 			}
 
 			answerTitle := queryAI(questionTitle, ollama)
@@ -146,7 +153,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 				answerDescription = AnswerItem{Answer: ""}
 			} else {
 				questionDescription := QuestionItem{
-					Question: "Generate text in Finnish. Just text itself, no explanation needed. Text: " + description,
+					Question: description,
 				}
 
 				answerDescription = queryAI(questionDescription, ollama)
@@ -170,7 +177,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 	for i := 0; i < len(sites.Sites); i++ {
 		feed, err := feedParser.ParseURL(sites.Sites[i].Url)
 		if err != nil {
-			B.LogFatal(err)
+			B.LogErr(err)
 		} else {
 			if feed.Image != nil {
 				for j := 0; j < len(feed.Items); j++ {
@@ -223,11 +230,11 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 		db, err := sql.Open("postgres", connStr)
 
 		if err != nil {
-			B.LogFatal(err)
+			B.LogErr(err)
 		}
 
 		if err = db.Ping(); err != nil {
-			B.LogFatal(err)
+			B.LogErr(err)
 		} else {
 			B.LogOut("Connected to database successfully")
 		}
@@ -240,7 +247,7 @@ func crawl(sites Conf.SitesConfig, database Conf.Database) {
 			}
 
 			if pk <= pkAccumulated {
-				B.LogFatal("PK ERROR")
+				B.LogOut("PK ERROR")
 			} else {
 				pkAccumulated = pk
 			}
@@ -255,11 +262,11 @@ func createTablesIfNeeded(database Conf.Database) {
 	db, err := sql.Open("postgres", connStr)
 
 	if err != nil {
-		B.LogFatal(err)
+		B.LogErr(err)
 	}
 
 	if err = db.Ping(); err != nil {
-		B.LogFatal(err)
+		B.LogErr(err)
 	} else {
 		B.LogOut("Connected to database successfully")
 	}
@@ -280,7 +287,7 @@ func createTablesIfNeeded(database Conf.Database) {
 
 	_, err = db.Exec(feedItems)
 	if err != nil {
-		B.LogFatal(err)
+		B.LogErr(err)
 	}
 
 	feedTranslations := `CREATE TABLE IF NOT EXISTS feed_translations (
@@ -289,6 +296,7 @@ func createTablesIfNeeded(database Conf.Database) {
 		language VARCHAR(10) NOT NULL,
 		title VARCHAR(500) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
+		llm VARCHAR(100) NOT NULL,
 		created timestamp DEFAULT NOW(),
 		UNIQUE (item_id, language),
 		FOREIGN KEY (item_id) REFERENCES feed_items(id) ON DELETE CASCADE
@@ -296,14 +304,14 @@ func createTablesIfNeeded(database Conf.Database) {
 
 	_, err = db.Exec(feedTranslations)
 	if err != nil {
-		B.LogFatal(err)
+		B.LogErr(err)
 	}
 
 	defer db.Close()
 }
 
 func insertItem(db *sql.DB, item *NewsItem) int {
-	query := "INSERT INTO feed_items (title, description, link, published, published_parsed, source, thumbnail, uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id"
+	query := "INSERT INTO feed_items (title, description, llm, link, published, published_parsed, source, thumbnail, uuid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING RETURNING id"
 
 	var pk int
 	err := db.QueryRow(query, item.Title, item.Description, item.Link, item.Published, item.PublishedParsed, item.Source, item.LinkImage, item.Uuid).Scan(&pk)
@@ -352,7 +360,7 @@ func init() {
 	var err error
 	cfg, err = Conf.LoadConfig("config.json")
 	if err != nil {
-		B.LogFatal(err)
+		B.LogErr(err)
 	}
 }
 
@@ -376,7 +384,7 @@ func main() {
 
 		createTablesIfNeeded(cfg.Database)
 		// crawl(cfg.Sites, cfg.Database)
-		translate(cfg.Ollama, cfg.Database)
+		// translate(cfg.Ollama, cfg.Database)
 	}()
 
 	wg.Wait()
