@@ -159,7 +159,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 				answerDescription = queryAI(questionDescription, ollama)
 			}
 
-			insertTranslation(db, id, "fi", ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
+			insertTranslation(db, id, "fi", ollama.Model, ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
 		}
 	}
 
@@ -325,8 +325,8 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	return pk
 }
 
-func insertTranslation(db *sql.DB, itemID int, language string, title string, description string) {
-	query := "INSERT INTO feed_translations (item_id, language, title, description) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING"
+func insertTranslation(db *sql.DB, itemID int, language string, llm string, title string, description string) {
+	query := "INSERT INTO feed_translations (item_id, language, llm, title, description) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
 
 	_, err := db.Exec(query, itemID, language, title, description)
 
