@@ -50,26 +50,35 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 		panic(err)
 	}
 
-	var response talkative.CompletionResponse
+	var response string
 	callback := func(cr string, err error) {
 		if err != nil {
-			fmt.Println(err)
 			return
 		}
+		var r talkative.CompletionResponse
 
-		if err = json.Unmarshal([]byte(cr), &response); err != nil {
-			fmt.Println(err)
-
+		if err = json.Unmarshal([]byte(cr), &r); err != nil {
 			return
 		}
-
-		// fmt.Print(response.Response)
+		response += r.Response
 	}
 
+	// regexing ->
+	cleanedQuestion := strings.TrimSpace(q.Question)
+	lines := strings.Split(cleanedQuestion, "\n")
+	var filteredLines []string
+	for _, line := range lines {
+		if !strings.Contains(line, "http") && !strings.Contains(line, "Comments") {
+			filteredLines = append(filteredLines, strings.TrimSpace(line))
+		}
+	}
+	cleanedQuestion = strings.Join(filteredLines, "\n")
+	// <-regexing
+
 	message := &talkative.CompletionMessage{
-		Prompt: q.Question,
+		Prompt: cleanedQuestion,
 		CompletionParams: &talkative.CompletionParams{
-			System: "You are language specialist, not a translator. You generate text in Finnish. Just text itself, no explanation needed.",
+			System: "You are language specialist. You generate text in Finnish. Just text itself, dont describe what you are doing in answer.",
 		},
 	}
 
@@ -82,7 +91,7 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 
 	<-done
 
-	answerItem := AnswerItem{Answer: response.Response}
+	answerItem := AnswerItem{Answer: response}
 
 	return answerItem
 }
@@ -119,11 +128,6 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 
 		if err := rows.Scan(&id, &title, &description, &published, &publishedParsed); err != nil {
 			B.LogErr(err)
-			continue
-		}
-
-		if strings.Contains(title, "http") || strings.Contains(description, "http") {
-			B.LogOut("Skipping item with link in title or description, id: " + strconv.Itoa(id))
 			continue
 		}
 
