@@ -63,7 +63,7 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 			return
 		}
 
-		fmt.Print(response.Response)
+		// fmt.Print(response.Response)
 	}
 
 	message := &talkative.CompletionMessage{
@@ -328,7 +328,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 func insertTranslation(db *sql.DB, itemID int, language string, llm string, title string, description string) {
 	query := "INSERT INTO feed_translations (item_id, language, llm, title, description) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
 
-	_, err := db.Exec(query, itemID, language, title, description)
+	_, err := db.Exec(query, itemID, language, llm, title, description)
 
 	if err != nil {
 		B.LogErr(err)
@@ -384,7 +384,7 @@ func main() {
 
 		createTablesIfNeeded(cfg.Database)
 		// crawl(cfg.Sites, cfg.Database)
-		// translate(cfg.Ollama, cfg.Database)
+		translate(cfg.Ollama, cfg.Database)
 	}()
 
 	wg.Wait()
