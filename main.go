@@ -43,6 +43,11 @@ type AnswerItem struct {
 	Answer string `json:"answer,omitempty"`
 }
 
+type Language struct {
+	Code string
+	Name string
+}
+
 func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 	client, err := talkative.New("http://" + ollama.Host + ":" + ollama.Port)
 
@@ -63,20 +68,8 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 		response += r.Response
 	}
 
-	// regexing ->
-	cleanedQuestion := strings.TrimSpace(q.Question)
-	lines := strings.Split(cleanedQuestion, "\n")
-	var filteredLines []string
-	for _, line := range lines {
-		if !strings.Contains(line, "http") && !strings.Contains(line, "Comments") {
-			filteredLines = append(filteredLines, strings.TrimSpace(line))
-		}
-	}
-	cleanedQuestion = strings.Join(filteredLines, "\n")
-	// <-regexing
-
 	message := &talkative.CompletionMessage{
-		Prompt: cleanedQuestion,
+		Prompt: parseQuestion(q).Question,
 		CompletionParams: &talkative.CompletionParams{
 			System: "You are language specialist. You generate text in Finnish. Just text itself, dont describe what you are doing in answer.",
 		},
@@ -94,6 +87,19 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 	answerItem := AnswerItem{Answer: response}
 
 	return answerItem
+}
+
+func parseQuestion(q QuestionItem) QuestionItem {
+	lines := strings.Split(q.Question, "\n")
+	var filteredLines []string
+	for _, line := range lines {
+		if !strings.Contains(line, "http") && !strings.Contains(line, "Comments") {
+			filteredLines = append(filteredLines, strings.TrimSpace(line))
+		}
+	}
+
+	question := strings.Join(filteredLines, "\n")
+	return QuestionItem{Question: question}
 }
 
 func translate(ollama Conf.Ollama, database Conf.Database) {
