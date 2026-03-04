@@ -4,7 +4,11 @@ ARC=$(uname -m)
 ARGUMENTS=("$@")
 
 if [ ${#ARGUMENTS[@]} -eq 0 ]; then
+    echo
     echo "Supported languages: en, fi, th, de, pt-BR"
+    echo "E.g. to run in Brazilian Portuguese:"
+    echo 
+    echo "./start.sh pt-BR"
     exit 1
 fi
 
