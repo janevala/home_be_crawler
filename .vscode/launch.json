@@ -7,7 +7,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "main.go",
-            "args": ["pt-BR", "10"],
+            // Supported languages: en, fi, th, de, pt-BR
+            "args": ["pt-BR", "50"],
             "buildFlags": [
                 "-tags=debug"
             ],

@@ -117,7 +117,6 @@ func translate(ollama Conf.Ollama, database Conf.Database, language Lang, limit 
 	}
 
 	rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC LIMIT $1`, limit)
-	// rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC`)
 
 	if err != nil {
 		B.LogErr(err)
