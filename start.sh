@@ -8,7 +8,7 @@ if [ ${#ARGUMENTS[@]} -eq 0 ]; then
     echo "Supported languages: en, fi, th, de, pt-BR"
     echo "E.g. to run in Brazilian Portuguese:"
     echo 
-    echo "./start.sh pt-BR"
+    echo "./start.sh pt-BR 10"
     exit 1
 fi
 

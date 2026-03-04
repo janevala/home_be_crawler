@@ -102,7 +102,7 @@ func parseQuestion(q QuestionItem) QuestionItem {
 	return QuestionItem{Question: question}
 }
 
-func translate(ollama Conf.Ollama, database Conf.Database, language Lang) {
+func translate(ollama Conf.Ollama, database Conf.Database, language Lang, limit int) {
 	connStr := database.Postgres
 	db, err := sql.Open("postgres", connStr)
 
@@ -116,7 +116,8 @@ func translate(ollama Conf.Ollama, database Conf.Database, language Lang) {
 		return
 	}
 
-	rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC`)
+	rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC LIMIT $1`, limit)
+	// rows, err := db.Query(`SELECT id, title, description, published, published_parsed FROM feed_items ORDER BY published_parsed DESC`)
 
 	if err != nil {
 		B.LogErr(err)
@@ -329,7 +330,7 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	if err != nil {
 		B.LogOut(err.Error() + " - duplicate uuid: " + item.Uuid)
 	} else {
-		B.LogOut("Inserted item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
+		B.LogOut("Item (pk: " + strconv.Itoa(pk) + "): " + ellipticalTruncate(item.Title, 35))
 	}
 
 	return pk
@@ -343,7 +344,7 @@ func insertTranslation(db *sql.DB, itemID int, code string, llm string, title st
 	if err != nil {
 		B.LogErr(err)
 	} else {
-		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " code: " + code + " - " + ellipticalTruncate(title, 95))
+		B.LogOut("Translation for item_id: " + strconv.Itoa(itemID) + " code: " + code + " - " + ellipticalTruncate(title, 95))
 	}
 }
 
@@ -381,11 +382,12 @@ func main() {
 	language := Lang{}
 	language.Code = "en"
 	language.Name = "English"
+	limit := 10
 
 	fmt.Println("All arguments:", os.Args)
 	arguments := os.Args[1:]
 
-	if len(arguments) == 1 {
+	if len(arguments) == 2 {
 		language.Code = arguments[0]
 		switch language.Code {
 		case "fi":
@@ -401,9 +403,22 @@ func main() {
 			language.Code = "en"
 			language.Name = "English"
 		}
+		limitArg := arguments[1]
+		parsedLimit, err := strconv.Atoi(limitArg)
+		if err != nil {
+			B.LogErr(fmt.Errorf("invalid limit argument: %v", err))
+
+			limit = 10
+			B.LogOut("Using default limit: " + strconv.Itoa(limit))
+		} else {
+			limit = parsedLimit
+		}
 	} else {
 		language.Code = "en"
 		language.Name = "English"
+		limit = 10
+		B.LogOut("Using default language: " + language.Name)
+		B.LogOut("Using default limit: " + strconv.Itoa(limit))
 	}
 
 	var wg sync.WaitGroup
@@ -415,9 +430,9 @@ func main() {
 
 		createTablesIfNeeded(cfg.Database)
 		// crawl(cfg.Sites, cfg.Database)
-		if language.Code != "en" {
+		if language.Code != "en" && limit > 0 && limit <= 1000 {
 			B.LogOut("Starting translation to " + language.Name)
-			translate(cfg.Ollama, cfg.Database, language)
+			translate(cfg.Ollama, cfg.Database, language, limit)
 		}
 	}()
 
