@@ -29,9 +29,6 @@ debug: build
 release: build
 	GOARCH=${BUILDARCH} go build -tags release -o ${BINARY_NAME}_${BUILDARCH} main.go
 
-run:
-	./${BINARY_NAME}_${BUILDARCH}
-
 clean:
 	go clean
 	go clean -cache
@@ -39,5 +36,3 @@ clean:
 	rm -rf go.sum
 	rm -rf go.mod
 	rm -f ${BINARY_NAME}_${BUILDARCH}
-
-rebuild: clean build

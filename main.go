@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"runtime"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,12 +43,12 @@ type AnswerItem struct {
 	Answer string `json:"answer,omitempty"`
 }
 
-type Language struct {
+type Lang struct {
 	Code string
 	Name string
 }
 
-func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
+func queryAI(q QuestionItem, ollama Conf.Ollama, language Lang) AnswerItem {
 	client, err := talkative.New("http://" + ollama.Host + ":" + ollama.Port)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func queryAI(q QuestionItem, ollama Conf.Ollama) AnswerItem {
 	message := &talkative.CompletionMessage{
 		Prompt: parseQuestion(q).Question,
 		CompletionParams: &talkative.CompletionParams{
-			System: "You are language specialist. You generate text in Finnish. Just text itself, dont describe what you are doing in answer.",
+			System: "You are language specialist. You generate text in " + language.Name + ". Just text itself, dont describe what you are doing in answer.",
 		},
 	}
 
@@ -102,7 +102,7 @@ func parseQuestion(q QuestionItem) QuestionItem {
 	return QuestionItem{Question: question}
 }
 
-func translate(ollama Conf.Ollama, database Conf.Database) {
+func translate(ollama Conf.Ollama, database Conf.Database, language Lang) {
 	connStr := database.Postgres
 	db, err := sql.Open("postgres", connStr)
 
@@ -143,7 +143,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 				SELECT 1
 				FROM feed_translations
 				WHERE item_id = $1 AND language = $2
-				)`, id, "fi").Scan(&exists)
+				)`, id, language.Code).Scan(&exists)
 
 		if err != nil {
 			B.LogErr(err)
@@ -155,7 +155,7 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 				Question: title,
 			}
 
-			answerTitle := queryAI(questionTitle, ollama)
+			answerTitle := queryAI(questionTitle, ollama, language)
 
 			answerDescription := AnswerItem{}
 
@@ -166,10 +166,10 @@ func translate(ollama Conf.Ollama, database Conf.Database) {
 					Question: description,
 				}
 
-				answerDescription = queryAI(questionDescription, ollama)
+				answerDescription = queryAI(questionDescription, ollama, language)
 			}
 
-			insertTranslation(db, id, "fi", ollama.Model, ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
+			insertTranslation(db, id, language.Code, ollama.Model, ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
 		}
 	}
 
@@ -335,15 +335,15 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	return pk
 }
 
-func insertTranslation(db *sql.DB, itemID int, language string, llm string, title string, description string) {
+func insertTranslation(db *sql.DB, itemID int, code string, llm string, title string, description string) {
 	query := "INSERT INTO feed_translations (item_id, language, llm, title, description) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
 
-	_, err := db.Exec(query, itemID, language, llm, title, description)
+	_, err := db.Exec(query, itemID, code, llm, title, description)
 
 	if err != nil {
 		B.LogErr(err)
 	} else {
-		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " language: " + language + " " + ellipticalTruncate(title, 95))
+		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " code: " + code + " - " + ellipticalTruncate(title, 95))
 	}
 }
 
@@ -378,12 +378,33 @@ func main() {
 	logger := log.New(log.Writer(), "[LOG] ", log.LstdFlags)
 	B.SetLogger(logger)
 
-	B.LogOut("Number of CPUs: " + strconv.Itoa(runtime.NumCPU()))
-	B.LogOut("Number of Goroutines: " + strconv.Itoa(runtime.NumGoroutine()))
+	language := Lang{}
+	language.Code = "en"
+	language.Name = "English"
 
-	B.LogOut("Starting with configuration:")
-	B.LogOut("Sites: " + fmt.Sprintf("%#v", cfg.Sites))
-	B.LogOut("Database: " + fmt.Sprintf("%#v", cfg.Database))
+	fmt.Println("All arguments:", os.Args)
+	arguments := os.Args[1:]
+
+	if len(arguments) == 1 {
+		language.Code = arguments[0]
+		switch language.Code {
+		case "fi":
+			language.Name = "Finnish"
+		case "th":
+			language.Name = "Thai"
+		case "de":
+			language.Name = "German"
+		case "pt-BR":
+			language.Name = "Brazilian Portuguese"
+		case "en":
+		default:
+			language.Code = "en"
+			language.Name = "English"
+		}
+	} else {
+		language.Code = "en"
+		language.Name = "English"
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -394,7 +415,10 @@ func main() {
 
 		createTablesIfNeeded(cfg.Database)
 		// crawl(cfg.Sites, cfg.Database)
-		translate(cfg.Ollama, cfg.Database)
+		if language.Code != "en" {
+			B.LogOut("Starting translation to " + language.Name)
+			translate(cfg.Ollama, cfg.Database, language)
+		}
 	}()
 
 	wg.Wait()
