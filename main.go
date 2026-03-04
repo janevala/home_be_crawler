@@ -343,7 +343,7 @@ func insertTranslation(db *sql.DB, itemID int, language string, llm string, titl
 	if err != nil {
 		B.LogErr(err)
 	} else {
-		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " language: " + language)
+		B.LogOut("Inserted translation for item_id: " + strconv.Itoa(itemID) + " language: " + language + " " + ellipticalTruncate(title, 95))
 	}
 }
 
