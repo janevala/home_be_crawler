@@ -8,7 +8,7 @@
             "mode": "auto",
             "program": "main.go",
             // Supported languages: en, fi, th, de, pt-BR
-            "args": ["pt-BR", "50"],
+            "args": ["fi", "100"],
             "buildFlags": [
                 "-tags=debug"
             ],

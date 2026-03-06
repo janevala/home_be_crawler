@@ -68,10 +68,19 @@ func queryAI(q QuestionItem, ollama Conf.Ollama, language Lang) AnswerItem {
 		response += r.Response
 	}
 
+	// prompt := "You are language specialist. You generate text in " + language.Name + ". Just text itself, dont describe what you are doing in answer."
+	prompt := "You are a professional " + language.Name + " (" + language.Code + ") translator. Your goal is to accurately convey the meaning and nuances of the original text while adhering to " + language.Name + " grammar, vocabulary, and cultural sensitivities. Produce only the " + language.Name + " translation, without any additional explanations or commentary. Please translate the following text into " + language.Name + ":"
+
+	preparsedQuestion := parseQuestion(q)
+	if preparsedQuestion.Question == "" {
+		// bypass AI
+		return AnswerItem{Answer: q.Question}
+	}
+
 	message := &talkative.CompletionMessage{
-		Prompt: parseQuestion(q).Question,
+		Prompt: preparsedQuestion.Question,
 		CompletionParams: &talkative.CompletionParams{
-			System: "You are language specialist. You generate text in " + language.Name + ". Just text itself, dont describe what you are doing in answer.",
+			System: prompt,
 		},
 	}
 
@@ -160,7 +169,7 @@ func translate(ollama Conf.Ollama, database Conf.Database, language Lang, limit 
 			answerDescription := AnswerItem{}
 
 			if description == "" {
-				answerDescription = AnswerItem{Answer: ""}
+				answerDescription = AnswerItem{Answer: answerTitle.Answer}
 			} else {
 				questionDescription := QuestionItem{
 					Question: description,
@@ -169,7 +178,7 @@ func translate(ollama Conf.Ollama, database Conf.Database, language Lang, limit 
 				answerDescription = queryAI(questionDescription, ollama, language)
 			}
 
-			insertTranslation(db, id, language.Code, ollama.Model, ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
+			insertTranslation(db, id, publishedParsed, language.Code, ollama.Model, ellipticalTruncate(answerTitle.Answer, 450), ellipticalTruncate(answerDescription.Answer, 950))
 		}
 	}
 
@@ -303,6 +312,7 @@ func createTablesIfNeeded(database Conf.Database) {
 	feedTranslations := `CREATE TABLE IF NOT EXISTS feed_translations (
 		id SERIAL PRIMARY KEY,
 		item_id INT NOT NULL,
+		published_parsed timestamp NOT NULL,
 		language VARCHAR(10) NOT NULL,
 		title VARCHAR(500) NOT NULL,
 		description VARCHAR(1000) NOT NULL,
@@ -335,10 +345,10 @@ func insertItem(db *sql.DB, item *NewsItem) int {
 	return pk
 }
 
-func insertTranslation(db *sql.DB, itemID int, code string, llm string, title string, description string) {
-	query := "INSERT INTO feed_translations (item_id, language, llm, title, description) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
+func insertTranslation(db *sql.DB, itemID int, publishedParsed time.Time, code string, llm string, title string, description string) {
+	query := "INSERT INTO feed_translations (item_id, published_parsed, language, llm, title, description) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING"
 
-	_, err := db.Exec(query, itemID, code, llm, title, description)
+	_, err := db.Exec(query, itemID, publishedParsed, code, llm, title, description)
 
 	if err != nil {
 		B.LogErr(err)
